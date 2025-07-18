@@ -1,11 +1,13 @@
 import os
 from datetime import datetime, timedelta
-from collections import Counter, defaultdict
+from typing import List, Dict
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-import numpy as np
 
+from utils.constants import STOP_WORDS
+from utils.service import get_api_outliers_stdev, get_authors_from_commit, filter_by_metric_type_and_author, \
+    get_most_frequent_words
 from github_fetcher import get_commits_between
 
 # --------------------------------------------------------------------------------------
@@ -37,13 +39,11 @@ def _default_dates():
     return start.isoformat(), end.isoformat()
 
 
-def _get_commits():
-    start = request.args.get("start_date")
-    end = request.args.get("end_date")
+def _get_commits(start: str, end: str) -> List[Dict]:
     if not start or not end:
         start, end = _default_dates()
     commits = get_commits_between(OWNER, REPO, start, end, GITHUB_TOKEN)
-    return commits, start, end
+    return commits
 
 
 # --------------------------------------------------------------------------------------
@@ -53,88 +53,48 @@ def _get_commits():
 
 @app.route("/api/authors")
 def api_authors():
-    commits, start, end = _get_commits()
-    authors = set()
-    for c in commits:
-        name = c["author"].get("name") or c["author"].get("login")
-        if name:
-            authors.add(name)
-    return jsonify(sorted(authors))
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+    authors = get_authors_from_commit(commits)
+    return jsonify(authors)
 
 
 @app.route("/api/outliers")
 def api_outliers():
-    commits, _, _ = _get_commits()
-    total_changes = np.array([c["additions"] + c["deletions"] for c in commits])
-    if len(total_changes) == 0:
-        return jsonify([])
-    mean = total_changes.mean()
-    std = total_changes.std() or 1  # avoid div0
-    outliers = []
-    for c in commits:
-        tc = c["additions"] + c["deletions"]
-        z = (tc - mean) / std
-        if z > 2:
-            outliers.append({
-                "sha": c["sha"],
-                "title": c["message"].split("\n")[0],
-                "total_changes": tc,
-                "z_score": round(float(z), 2),
-            })
-    # sort descending by z_score
-    outliers.sort(key=lambda x: x["z_score"], reverse=True)
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
+    outliers = get_api_outliers_stdev(commits)
     return jsonify(outliers)
-
-
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 @app.route("/api/activity")
 def api_activity():
-    commits, _, _ = _get_commits()
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
     metric_type = request.args.get("metric_type", "commits")
     author_filter = request.args.get("author")
 
-    buckets = defaultdict(int)
-    for c in commits:
-        if author_filter:
-            name = c["author"].get("name") or c["author"].get("login")
-            if name != author_filter:
-                continue
-        date_obj = datetime.fromisoformat(c["date"].replace("Z", "+00:00"))
-        day_name = DAY_NAMES[date_obj.weekday()]
-
-        if metric_type == "commits":
-            buckets[day_name] += 1
-        elif metric_type == "additions":
-            buckets[day_name] += c["additions"]
-        elif metric_type == "deletions":
-            buckets[day_name] += c["deletions"]
-        else:  # total_changes
-            buckets[day_name] += c["additions"] + c["deletions"]
-
-    # ensure all days present
-    result = {d: buckets.get(d, 0) for d in DAY_NAMES}
+    result = filter_by_metric_type_and_author(commits, metric_type, author_filter)
     return jsonify(result)
-
-
-STOP_WORDS = set("""
-a an the and or but if in on at for to of with a's that's it is are was were be been being this that those these i me my we our you your he she they them their commit merge fix fixed update updates updated
-""".split())
 
 
 @app.route("/api/word_frequency")
 def api_word_frequency():
-    commits, _, _ = _get_commits()
-    words = Counter()
-    for c in commits:
-        msg = c["message"].lower()
-        for w in msg.split():
-            w = ''.join(ch for ch in w if ch.isalpha())  # strip punctuation
-            if w and w not in STOP_WORDS and len(w) > 2:
-                words[w] += 1
-    most_common = [{"text": w, "value": cnt} for w, cnt in words.most_common(200)]
-    return jsonify(most_common)
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
+    results = get_most_frequent_words(commits, STOP_WORDS)
+    return jsonify(results)
 
 
 # --------------------------------------------------------------------------------------
