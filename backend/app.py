@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import numpy as np
 
+from utils.author_utils import get_api_outliers_stdev, get_authors_from_commit
 from github_fetcher import get_commits_between
 
 # --------------------------------------------------------------------------------------
@@ -56,12 +57,8 @@ def api_authors():
     end = request.args.get("end_date")
 
     commits = _get_commits(start=start, end=end)
-    authors = set()
-    for c in commits:
-        name = c["author"].get("name") or c["author"].get("login")
-        if name:
-            authors.add(name)
-    return jsonify(sorted(authors))
+    authors = get_authors_from_commit(commits)
+    return jsonify(authors)
 
 
 @app.route("/api/outliers")
@@ -71,24 +68,7 @@ def api_outliers():
 
     commits = _get_commits(start=start, end=end)
 
-    total_changes = np.array([c["additions"] + c["deletions"] for c in commits])
-    if len(total_changes) == 0:
-        return jsonify([])
-    mean = total_changes.mean()
-    std = total_changes.std() or 1  # avoid div0
-    outliers = []
-    for c in commits:
-        tc = c["additions"] + c["deletions"]
-        z = (tc - mean) / std
-        if z > 2:
-            outliers.append({
-                "sha": c["sha"],
-                "title": c["message"].split("\n")[0],
-                "total_changes": tc,
-                "z_score": round(float(z), 2),
-            })
-    # sort descending by z_score
-    outliers.sort(key=lambda x: x["z_score"], reverse=True)
+    outliers = get_api_outliers_stdev(commits)
     return jsonify(outliers)
 
 
