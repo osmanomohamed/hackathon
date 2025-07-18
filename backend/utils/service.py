@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from collections import Counter
 
-from utils.constants import DAY_NAMES
+from .constants import DAY_NAMES
 
 
 def get_authors_from_commit(commits: list):

@@ -8,8 +8,8 @@ from backend.utils.service import (
     get_api_outliers_stdev,
     filter_by_metric_type_and_author,
     get_most_frequent_words,
-    DAY_NAMES
 )
+from backend.utils.constants import DAY_NAMES
 import unittest
 from unittest.mock import patch
 from datetime import datetime
