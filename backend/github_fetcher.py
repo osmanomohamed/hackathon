@@ -33,7 +33,7 @@ query($owner: String!, $name: String!, $since: GitTimestamp, $until: GitTimestam
     defaultBranchRef {
       target {
         ... on Commit {
-          history(first: 10, since: $since, until: $until, after: $cursor) {
+          history(first: 100, since: $since, until: $until, after: $cursor) {
             pageInfo {
               hasNextPage
               endCursor
