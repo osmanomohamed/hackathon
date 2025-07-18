@@ -17,12 +17,30 @@ function debounce(fn, delay) {
   };
 }
 
-function showLoader(show) {
+function showLoader(show, message = "Analyzing repository data...") {
   loader.classList.toggle("hidden", !show);
   runBtn.disabled = show;
+
+  if (show) {
+    const loaderText = loader.querySelector("span");
+    if (loaderText) {
+      loaderText.textContent = message;
+    }
+  }
+}
+
+function showAuthorsLoader(show) {
+  if (show) {
+    authorSelect.disabled = true;
+    authorSelect.innerHTML = '<option value="">Loading authors...</option>';
+  } else {
+    authorSelect.disabled = false;
+  }
 }
 
 function populateAuthors(authors) {
+// Clear existing options except the first "All Authors" option
+  authorSelect.innerHTML = '<option value="">All Authors</option>';
   authors.forEach((name) => {
     const opt = document.createElement("option");
     opt.value = name;
