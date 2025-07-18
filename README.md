@@ -1,5 +1,7 @@
 # Git Analytics Dashboard
 
+![img.png](img.png)
+
 A full-stack demo project (Flask + vanilla JS) that visualises GitHub repository activity.
 
 ## Features
