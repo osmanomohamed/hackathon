@@ -146,4 +146,4 @@ bin/*
 !bin/generate-requirements.sh
 
 
-./backend/cache/
+backend/cache/*
