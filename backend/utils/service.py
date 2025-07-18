@@ -2,8 +2,9 @@ from collections import defaultdict
 from datetime import datetime
 
 import numpy as np
+from collections import Counter
 
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+from utils.constants import DAY_NAMES
 
 
 def get_authors_from_commit(commits: list):
@@ -40,7 +41,6 @@ def get_api_outliers_stdev(commits:list) -> list:
     return outliers
 
 
-
 def filter_by_metric_type_and_author(commits: list, metric_type: str, author_filter: str = None) -> dict:
     buckets = defaultdict(int)
     for c in commits:
@@ -65,12 +65,7 @@ def filter_by_metric_type_and_author(commits: list, metric_type: str, author_fil
     return result
 
 
-
-
 def get_most_frequent_words(commits: list, stop_words: set) -> list:
-    from collections import Counter
-
-
     words = Counter()
     for c in commits:
         msg = c["message"].lower()

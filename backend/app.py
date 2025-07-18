@@ -1,12 +1,11 @@
 import os
 from datetime import datetime, timedelta
-from collections import Counter, defaultdict
 from typing import List, Dict
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-import numpy as np
 
+from utils.constants import STOP_WORDS
 from utils.service import get_api_outliers_stdev, get_authors_from_commit, filter_by_metric_type_and_author, \
     get_most_frequent_words
 from github_fetcher import get_commits_between
@@ -73,9 +72,6 @@ def api_outliers():
     return jsonify(outliers)
 
 
-
-
-
 @app.route("/api/activity")
 def api_activity():
     start = request.args.get("start_date")
@@ -88,11 +84,6 @@ def api_activity():
 
     result = filter_by_metric_type_and_author(commits, metric_type, author_filter)
     return jsonify(result)
-
-
-STOP_WORDS = set("""
-a an the and or but if in on at for to of with a's that's it is are was were be been being this that those these i me my we our you your he she they them their commit merge fix fixed update updates updated
-""".split())
 
 
 @app.route("/api/word_frequency")

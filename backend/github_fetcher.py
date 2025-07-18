@@ -5,12 +5,12 @@ from typing import List, Dict, Optional
 
 import requests
 from tqdm import tqdm
-from flask import current_app
+
+from utils.constants import GITHUB_API_URL
+from utils.graphql_queries import HISTORY_QUERY
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
-
-GITHUB_API_URL = "https://api.github.com/graphql"
 
 
 def _cache_path(owner: str, repo: str, start: str, end: str) -> str:
@@ -25,41 +25,6 @@ def _run_query(query: str, variables: dict, token: str) -> dict:
         return response.json()
     else:
         raise RuntimeError(f"GitHub API error {response.status_code}: {response.text}")
-
-
-HISTORY_QUERY = """
-query($owner: String!, $name: String!, $since: GitTimestamp, $until: GitTimestamp, $cursor: String) {
-  repository(owner: $owner, name: $name) {
-    defaultBranchRef {
-      target {
-        ... on Commit {
-          history(first: 100, since: $since, until: $until, after: $cursor) {
-            totalCount
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            edges {
-              node {
-                oid
-                committedDate
-                message
-                additions
-                deletions
-                author {
-                  name
-                  email
-                  user { login }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"""
 
 
 def get_commits_between(owner: str, repo: str, start: str, end: str, token: str) -> List[Dict]:
