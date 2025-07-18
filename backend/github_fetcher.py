@@ -33,7 +33,8 @@ query($owner: String!, $name: String!, $since: GitTimestamp, $until: GitTimestam
     defaultBranchRef {
       target {
         ... on Commit {
-          history(first: 10, since: $since, until: $until, after: $cursor) {
+          history(first: 100, since: $since, until: $until, after: $cursor) {
+            totalCount
             pageInfo {
               hasNextPage
               endCursor
@@ -74,20 +75,26 @@ def get_commits_between(owner: str, repo: str, start: str, end: str, token: str)
     all_commits: List[Dict] = []
     cursor: Optional[str] = None
 
-    pbar = tqdm(total=None, desc="Fetching pages")
-    while True:
-        variables = {
-            "owner": owner,
-            "name": repo,
-            "since": f"{start}T00:00:00Z",
-            "until": f"{end}T23:59:59Z",
-            "cursor": cursor,
-        }
-        result = _run_query(HISTORY_QUERY, variables, token)
-        if "errors" in result:
-            raise RuntimeError(result["errors"])
+    first=100
+    variables = {
+        "owner": owner,
+        "name": repo,
+        "since": f"{start}T00:00:00Z",
+        "until": f"{end}T23:59:59Z",
+        "cursor": cursor,
+    }
+    result = _run_query(HISTORY_QUERY, variables, token)
+    if "errors" in result:
+        raise RuntimeError(result["errors"])
 
-        edges = result["data"]["repository"]["defaultBranchRef"]["target"]["history"]["edges"]
+    history = result["data"]["repository"]["defaultBranchRef"]["target"]["history"]
+    total_count = history["totalCount"]
+    pages = (total_count + first - 1) // first
+
+    pbar = tqdm(total=pages, desc="Fetching pages")
+
+    while True:
+        edges = history["edges"]
         for edge in edges:
             node = edge["node"]
             commit = {
@@ -104,15 +111,20 @@ def get_commits_between(owner: str, repo: str, start: str, end: str, token: str)
             }
             all_commits.append(commit)
 
-        page_info = result["data"]["repository"]["defaultBranchRef"]["target"]["history"]["pageInfo"]
-        cursor = page_info["endCursor"]
         pbar.update(1)
+
         # persist after each page
         with open(cache_file, "w") as f:
             json.dump(all_commits, f)
 
+        page_info = result["data"]["repository"]["defaultBranchRef"]["target"]["history"]["pageInfo"]
         if not page_info["hasNextPage"]:
             break
+
+        cursor = history["pageInfo"]["endCursor"]
+        variables["cursor"] = cursor
+        result = _run_query(HISTORY_QUERY, variables, token)
+        history = result["data"]["repository"]["defaultBranchRef"]["target"]["history"]
         # minor throttle to respect secondary rate limits
         time.sleep(0.8)
     pbar.close()
