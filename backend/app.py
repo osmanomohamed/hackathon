@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
+from typing import List, Dict
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -37,13 +38,11 @@ def _default_dates():
     return start.isoformat(), end.isoformat()
 
 
-def _get_commits():
-    start = request.args.get("start_date")
-    end = request.args.get("end_date")
+def _get_commits(start: str, end: str) -> List[Dict]:
     if not start or not end:
         start, end = _default_dates()
     commits = get_commits_between(OWNER, REPO, start, end, GITHUB_TOKEN)
-    return commits, start, end
+    return commits
 
 
 # --------------------------------------------------------------------------------------
@@ -53,7 +52,10 @@ def _get_commits():
 
 @app.route("/api/authors")
 def api_authors():
-    commits, start, end = _get_commits()
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
     authors = set()
     for c in commits:
         name = c["author"].get("name") or c["author"].get("login")
@@ -64,7 +66,11 @@ def api_authors():
 
 @app.route("/api/outliers")
 def api_outliers():
-    commits, _, _ = _get_commits()
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
     total_changes = np.array([c["additions"] + c["deletions"] for c in commits])
     if len(total_changes) == 0:
         return jsonify([])
@@ -91,7 +97,11 @@ DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 @app.route("/api/activity")
 def api_activity():
-    commits, _, _ = _get_commits()
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
     metric_type = request.args.get("metric_type", "commits")
     author_filter = request.args.get("author")
 
@@ -125,7 +135,11 @@ a an the and or but if in on at for to of with a's that's it is are was were be 
 
 @app.route("/api/word_frequency")
 def api_word_frequency():
-    commits, _, _ = _get_commits()
+    start = request.args.get("start_date")
+    end = request.args.get("end_date")
+
+    commits = _get_commits(start=start, end=end)
+
     words = Counter()
     for c in commits:
         msg = c["message"].lower()

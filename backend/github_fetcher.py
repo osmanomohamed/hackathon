@@ -1,11 +1,11 @@
 import os
 import json
 import time
-from datetime import datetime
 from typing import List, Dict, Optional
 
 import requests
 from tqdm import tqdm
+from flask import current_app
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
