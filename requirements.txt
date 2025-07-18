@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+requests
+tqdm
+python-dotenv
+numpy 
